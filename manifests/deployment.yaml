@@ -16,6 +16,6 @@ spec:
     spec:
       containers:
       - name: backend
-        image: <your-container-registry>/backend:v1
+        image: myacrirmai/backend:v1
         ports:
         - containerPort: 5000

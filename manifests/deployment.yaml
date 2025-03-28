@@ -1,11 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: backend
-  labels:
-    app: backend
+  name: backend-app
 spec:
-  replicas: 2
+  replicas: 3
   selector:
     matchLabels:
       app: backend
@@ -16,6 +14,6 @@ spec:
     spec:
       containers:
       - name: backend
-        image: myacrirmai/backend:v1
+        image: myregistry.azurecr.io/backend:v1
         ports:
         - containerPort: 5000

@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: myacrirmai.azurecr.io/backend:latest
+        image: myacrirmai.azurecr.io/my-backend:latest
 
         ports:
         - containerPort: 8080

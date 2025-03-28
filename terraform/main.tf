@@ -1,146 +1,114 @@
-terraform {
-  backend "azurerm" {
-    resource_group_name   = "14185-irmai-1-jg5p49"  # Your existing resource group
-    storage_account_name  = "irmaitfstorage"       # Your storage account name
-    container_name        = "terraform-state"      # Your container  name
-    key                   = "infra.tfstate"
-  }
-}
-
 provider "azurerm" {
   features {}
-  subscription_id = "36448a90-905c-4f48-b1b3-deb171f7c247" #  Ensure this  subscription ID is correct
 }
 
-# Use an existing Resource Group
-data "azurerm_resource_group" "irmai_rg" {
-  name = "14185-irmai-1-jg5p49" # Ensure this   name matches the existing resource group
+# Create a Resource Group
+resource "azurerm_resource_group" "backend_rg" {
+  name     = "backend-resource-group"
+  location = "East US"
 }
 
-# Virtual Network
-resource "azurerm_virtual_network" "irmai_vnet" {
-  name                = "irmai-1-jg5p49-vn"
+# Create a Virtual Network
+resource "azurerm_virtual_network" "backend_vnet" {
+  name                = "backend-vnet"
+  location            = azurerm_resource_group.backend_rg.location
+  resource_group_name = azurerm_resource_group.backend_rg.name
   address_space       = ["10.0.0.0/16"]
-  location            = data.azurerm_resource_group.irmai_rg.location
-  resource_group_name = data.azurerm_resource_group.irmai_rg.name
 }
 
-# Subnet
-resource "azurerm_subnet" "irmai_subnet" {
-  name                 = "irmai-1-jg5p49-sn"
-  resource_group_name  = data.azurerm_resource_group.irmai_rg.name
-  virtual_network_name = azurerm_virtual_network.irmai_vnet.name
-  address_prefixes     = ["10.0.0.0/24"]
+# Create a Subnet
+resource "azurerm_subnet" "backend_subnet" {
+  name                 = "backend-subnet"
+  resource_group_name  = azurerm_resource_group.backend_rg.name
+  virtual_network_name = azurerm_virtual_network.backend_vnet.name
+  address_prefixes     = ["10.0.1.0/24"]
 }
 
-# Network Security Group (NSG) - Best practice default deny inbound
-resource "azurerm_network_security_group" "irmai_nsg" {
-  name                = "irmai-default-nsg"
-  location            = data.azurerm_resource_group.irmai_rg.location
-  resource_group_name = data.azurerm_resource_group.irmai_rg.name
-
-  security_rule {
-    name                       = "Allow-HTTPS-Out"
-    priority                   = 100
-    direction                  = "Outbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "443"
-    source_address_prefix      = "*"
-    destination_address_prefix = "Internet"
-  }
-
-  security_rule {
-    name                       = "Deny-All-Inbound"
-    priority                   = 4096
-    direction                  = "Inbound"
-    access                     = "Deny"
-    protocol                   = "*"
-    source_port_range          = "*"
-    destination_port_range     = "*"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
-  }
-}
-
-# Associate NSG with Subnet
-resource "azurerm_subnet_network_security_group_association" "irmai_subnet_nsg_assoc" {
-  subnet_id                 = azurerm_subnet.irmai_subnet.id
-  network_security_group_id = azurerm_network_security_group.irmai_nsg.id
-}
-
-# AKS Cluster
-resource "azurerm_kubernetes_cluster" "irmai_aks" {
-  name                = "irmai-1-jg5p49"
-  location            = data.azurerm_resource_group.irmai_rg.location
-  resource_group_name = data.azurerm_resource_group.irmai_rg.name
-  dns_prefix          = "irmai"
+# Create an AKS Cluster with Auto-Scaling and GitOps Integration
+resource "azurerm_kubernetes_cluster" "backend_aks" {
+  name                = "backend-aks"
+  location            = azurerm_resource_group.backend_rg.location
+  resource_group_name = azurerm_resource_group.backend_rg.name
+  dns_prefix          = "backend-cluster"
 
   default_node_pool {
-    name       = "system"
-    node_count = 1
-    vm_size    = "Standard_B4as_v2"
+    name                = "systempool"
+    node_count          = 2
+    vm_size             = "Standard_D2s_v3"
+    vnet_subnet_id      = azurerm_subnet.backend_subnet.id
+    enable_auto_scaling = true
+    min_count           = 2
+    max_count           = 10
   }
 
   identity {
     type = "SystemAssigned"
   }
 
-  network_profile {
-    network_plugin     = "azure"
-    load_balancer_sku  = "standard"
-    dns_service_ip     = "10.0.0.10"
-    service_cidr       = "10.0.0.0/16"
+  # Enable Azure AD integration
+  azure_active_directory_role_based_access_control {
+    managed = true
   }
+
+  network_profile {
+    network_plugin = "azure"
+  }
+
+  gitops {
+    name          = "backend-gitops"
+    namespace     = "backend"
+    url           = "https://github.com/yourusername/backend-deployment.git"
+    branch        = "main"
+    path          = "k8s"
+    sync_interval = "3m"
+  }
+
+  depends_on = [azurerm_subnet.backend_subnet]
 }
 
-# Additional Node Pools
-resource "azurerm_kubernetes_cluster_node_pool" "appvr" {
-  name                  = "c4465appvr"
-  kubernetes_cluster_id = azurerm_kubernetes_cluster.irmai_aks.id
-  vm_size               = "Standard_B4as_v2"
-  node_count            = 3
-  os_type               = "Linux"
-  mode                  = "User"
+# Create a Storage Account for Logs
+resource "azurerm_storage_account" "backend_storage" {
+  name                     = "backendstoragelog"
+  resource_group_name      = azurerm_resource_group.backend_rg.name
+  location                 = azurerm_resource_group.backend_rg.location
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
 }
 
-resource "azurerm_kubernetes_cluster_node_pool" "azuk7" {
-  name                  = "c4465azuk7"
-  kubernetes_cluster_id = azurerm_kubernetes_cluster.irmai_aks.id
-  vm_size               = "Standard_B4as_v2"
-  node_count            = 1
-  os_type               = "Linux"
-  mode                  = "User"
+# Create a Storage Container
+resource "azurerm_storage_container" "backend_logs" {
+  name                  = "backend-logs"
+  storage_account_name  = azurerm_storage_account.backend_storage.name
+  container_access_type = "private"
 }
 
-resource "azurerm_kubernetes_cluster_node_pool" "monr6" {
-  name                  = "c4465monr6"
-  kubernetes_cluster_id = azurerm_kubernetes_cluster.irmai_aks.id
-  vm_size               = "Standard_B4as_v2"
-  node_count            = 1
-  os_type               = "Linux"
-  mode                  = "User"
+# Create a Network Security Group (NSG)
+resource "azurerm_network_security_group" "backend_nsg" {
+  name                = "backend-nsg"
+  location            = azurerm_resource_group.backend_rg.location
+  resource_group_name = azurerm_resource_group.backend_rg.name
 }
 
-resource "azurerm_kubernetes_cluster_node_pool" "sysff" {
-  name                  = "c4465sysff"
-  kubernetes_cluster_id = azurerm_kubernetes_cluster.irmai_aks.id
-  vm_size               = "Standard_B4as_v2"
-  node_count            = 1
-  os_type               = "Linux"
-  mode                  = "User"
+# Allow Inbound Traffic to AKS
+resource "azurerm_network_security_rule" "allow_aks" {
+  name                        = "AllowAKSInbound"
+  priority                    = 100
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "Tcp"
+  source_port_range           = "*"
+  destination_port_range      = "443"
+  source_address_prefix       = "*"
+  destination_address_prefix  = "*"
+  resource_group_name         = azurerm_resource_group.backend_rg.name
+  network_security_group_name = azurerm_network_security_group.backend_nsg.name
 }
 
-# Check if the private DNS zone already exists
-data "azurerm_private_dns_zone" "existing_blob_dns" {
-  name                = "privatelink.blob.core.windows.net"
-  resource_group_name = data.azurerm_resource_group.irmai_rg.name
+# Output the AKS Cluster Name and Storage Account
+output "aks_cluster_name" {
+  value = azurerm_kubernetes_cluster.backend_aks.name
 }
 
-# Create the private DNS zone if it doesn't exist
-resource "azurerm_private_dns_zone" "blob_dns" {
-  count               = data.azurerm_private_dns_zone.existing_blob_dns.id != "" ? 0 : 1
-  name                = "privatelink.blob.core.windows.net"
-  resource_group_name = data.azurerm_resource_group.irmai_rg.name
+output "storage_account_name" {
+  value = azurerm_storage_account.backend_storage.name
 }

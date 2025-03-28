@@ -1,4 +1,4 @@
-name: Deploy to Azure with Terraform
+name: Terraform Deployment
 
 on:
   push:
@@ -9,30 +9,18 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3  # Updated to latest version
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2  # Updated   to latest version
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
 
       - name: Azure Login
-        uses: azure/login@v1  # Updated to latest version
+        uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS_TEMP }}
 
-      - name: Initialize Terraform
-        run: cd terraform && terraform init
-        
-      - name: Validate Terraform
-        run: cd terraform && terraform validate
-      
-      - name: Plan Terraform
-        run: cd terraform && terraform plan -out=tfplan
-
-      - name: Apply Terraform
-        run: cd terraform && terraform apply -auto-approve tfplan
-        env:
-          ARM_CLIENT_ID: ${{ secrets.clientId }}
-          ARM_CLIENT_SECRET: ${{ secrets.clientSecret }}
-          ARM_SUBSCRIPTION_ID: ${{ secrets.subscriptionId }}
-          ARM_TENANT_ID: ${{ secrets.tenantId }}
+      - name: Terraform Init & Apply
+        run: |
+          terraform init
+          terraform apply -auto-approve

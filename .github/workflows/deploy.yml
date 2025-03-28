@@ -20,7 +20,9 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS_TEMP }}
 
-      - name: Terraform Init & Apply
-        run: |
-          terraform init
-          terraform apply -auto-approve
+      - name: Initialize Terraform
+        run: cd terraform && terraform init
+
+      - name: Apply Terraform
+        run: cd terraform && terraform apply -auto-approve
+

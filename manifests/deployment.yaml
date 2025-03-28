@@ -15,6 +15,6 @@ spec:
     spec:
       containers:
       - name: backend
-        image: myregistry.azurecr.io/backend:v1
+        image: myacrirmai.azurecr.io/my-backend:latest
         ports:
         - containerPort: 5000

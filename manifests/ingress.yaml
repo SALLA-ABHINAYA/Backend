@@ -4,14 +4,15 @@ metadata:
   name: backend-ingress
   namespace: backend
 spec:
+  ingressClassName: nginx  
   rules:
-  - host: backend.example.com
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: backend-service
-            port:
-              number: 80
+    - host: backend.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: backend-service
+                port:
+                  number: 80

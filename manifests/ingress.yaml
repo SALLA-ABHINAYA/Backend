@@ -3,8 +3,8 @@ kind: Ingress
 metadata:
   name: backend-ingress
   namespace: backend
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
+  annotations:{}
+    
 spec:
   ingressClassName: nginx  
   rules:

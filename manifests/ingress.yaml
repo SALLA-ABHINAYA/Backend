@@ -9,7 +9,7 @@ metadata:
 spec:
   ingressClassName: nginx  
   rules:
-    - host: 135.234.218.31
+    - host: backend.example.com
       http:
         paths:
           - path: /

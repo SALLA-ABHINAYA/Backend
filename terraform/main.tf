@@ -38,7 +38,7 @@ resource "azurerm_kubernetes_cluster" "backend_aks" {
     vnet_subnet_id      = azurerm_subnet.backend_subnet.id
     enable_auto_scaling = true
     min_count           = 2
-    max_count           = 10
+    max_count           = 4
   }
 
   identity {
